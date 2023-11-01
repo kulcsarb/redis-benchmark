@@ -1,0 +1,5 @@
+---
+redis_password: Zw385yj05FbaGaEhjpKF
+
+# name for the unix user for the service
+service_user: benchmark

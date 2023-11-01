@@ -1,0 +1,24 @@
+---
+- name: install prometheus
+  ansible.builtin.apt:
+    name: prometheus
+    state: present
+    update_cache: yes
+
+- name: upload default configs for prometheus
+  ansible.builtin.copy:
+    src: default-prometheus
+    dest: /etc/default/prometheus
+    mode: '0644'
+
+- name: upload default configs for prometheus node exporter
+  ansible.builtin.copy:
+    src: default-prometheus-node-exporter
+    dest: /etc/default/prometheus-node-exporter
+    mode: '0644'
+
+- name: Enable and start grafana service
+  service:
+    name: prometheus
+    enabled: yes
+    state: restarted

@@ -1,0 +1,86 @@
+---
+- name: Install dependencies
+  ansible.builtin.apt:
+    pkg:
+      - python3-pip
+      - python3-venv
+    update_cache: yes
+
+- name: Create benchmark user
+  ansible.builtin.user:
+    name: "{{ service_user }}"
+    state: present
+
+- name: Create Python venv for benchmark user
+  ansible.builtin.command:
+    cmd: "python3 -m venv /home/{{ service_user }}/venv"
+  become_user: "{{ service_user }}"
+
+- name: Upload requirements.txt file
+  ansible.builtin.copy:
+    src: requirements.txt
+    dest: "/home/{{ service_user }}/requirements.txt"
+    mode: '0644'
+  become_user: "{{ service_user }}"
+
+- name: Install requirements.txt in benchmark venv
+  ansible.builtin.pip:
+    requirements: "/home/{{ service_user }}/requirements.txt"
+    virtualenv: "/home/{{ service_user }}/venv"
+    virtualenv_command: /usr/bin/python3 -m venv
+  become_user: "{{ service_user }}"
+
+- name: Remove requirements.txt file
+  ansible.builtin.file:
+    path: "/home/{{ service_user }}/requirements.txt"
+    state: absent
+
+- name: Create benchmarks directory
+  ansible.builtin.file:
+    path: "/home/{{ service_user }}/benchmarks"
+    state: directory
+    mode: '0755'
+  become_user: "{{ service_user }}"
+
+- name: Upload py file
+  ansible.builtin.copy:
+    src: redis_get_set.py
+    dest: "/home/{{ service_user }}/benchmarks/redis_get_set.py"
+    mode: '0644'
+  become_user: "{{ service_user }}"
+
+- name: Upload service runner
+  ansible.builtin.template:
+    src: redis-benchmark.sh.j2
+    dest: "/home/{{ service_user }}/redis-benchmark.sh"
+    mode: '0755'
+  become_user: "{{ service_user }}"
+
+- name: Create config directory
+  ansible.builtin.file:
+    path: /etc/redis-benchmark
+    state: directory
+    owner: root
+    group: "{{ service_user }}"
+    mode: '0750'
+
+- name: Create service config file from template
+  ansible.builtin.template:
+    src: redis-benchmark.conf.j2
+    dest: "/etc/redis-benchmark/redis-benchmark.conf"
+    owner: root
+    group: "{{ service_user }}"
+    mode: '0640'
+
+- name: Upload systemd service file
+  ansible.builtin.template:
+    src: redis-benchmark.service.j2
+    dest: /etc/systemd/system/redis-benchmark.service
+  notify:
+    - reload systemd
+
+- name: Start service
+  ansible.builtin.systemd:
+    enabled: yes
+    state: started
+    name: redis-benchmark

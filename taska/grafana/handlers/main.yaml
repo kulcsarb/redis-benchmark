@@ -1,0 +1,4 @@
+---
+- name: Wait after grafana install
+  ansible.builtin.pause:
+    seconds: 5

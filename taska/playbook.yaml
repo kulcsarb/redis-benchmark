@@ -1,0 +1,28 @@
+---
+- hosts: redis-benchmark
+  become: yes
+  vars_files:
+    - vars.yaml
+  tasks:
+    - name: Install system wide dependencies
+      ansible.builtin.apt:
+        pkg:
+          - apt-transport-https
+          - software-properties-common
+          - curl
+          - wget
+          - ca-certificates
+          - acl
+        update_cache: yes
+
+- hosts: redis-benchmark
+  become: yes
+  vars_files:
+    - vars.yaml
+  roles:
+    - role: geerlingguy.redis
+      redis_requirepass: "{{ redis_password }}"
+      redis_bind_interface: 127.0.0.1
+    - prometheus
+    - grafana
+    - redis-benchmark

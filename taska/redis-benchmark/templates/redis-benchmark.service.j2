@@ -1,0 +1,15 @@
+[Unit]
+Description=Redis Benchmark Service
+After=network.target
+Requires=redis-server.service
+
+[Service]
+WorkingDirectory=/home/{{ service_user }}
+ExecStart=/home/{{ service_user }}/redis-benchmark.sh
+Restart=always
+User={{ service_user }}
+Group={{ service_user }}
+EnvironmentFile=/etc/redis-benchmark/redis-benchmark.conf
+
+[Install]
+WantedBy=multi-user.target

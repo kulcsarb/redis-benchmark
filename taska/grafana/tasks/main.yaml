@@ -1,0 +1,75 @@
+---
+- name: update package manager
+  ansible.builtin.apt:
+    pkg:
+      - apt-transport-https
+      - software-properties-common
+      - wget
+    update_cache: yes
+  become: true
+
+- name: add signing key
+  ansible.builtin.apt_key:
+    url: https://apt.grafana.com/gpg.key
+    keyring: /etc/apt/keyrings/grafana.gpg
+
+- name: add grafana repo
+  ansible.builtin.apt_repository:
+    repo: deb [signed-by=/etc/apt/keyrings/grafana.gpg] https://apt.grafana.com stable main
+    state: present
+    filename: grafana
+
+- name: install grafana
+  ansible.builtin.apt:
+    name: grafana
+    state: present
+    update_cache: yes
+
+- name: enable and start grafana service
+  ansible.builtin.systemd:
+    name: grafana-server
+    enabled: yes
+    state: started
+
+## since notify doesn't seem to be working, I had to force ansible to sleep here. See the explanation below for why
+## ps: a more robust handler would be nice, like checking grafana logs and continuing only when it finished setup itself...
+- name: Wait after grafana install
+  ansible.builtin.pause:
+    seconds: 10
+
+### currently there's no other way to change the admin password through ansible.
+## note: community.grafana.grafana_user is unable to change the password & new users added with viewer role even if is_admin: true :/
+## sometimes this command fails as the just-installed grafana is in the process of creating its own database in /var/lib/grafana,
+## and running the cli too early can cause it fail with migration error. Hence the wait above...
+- name: change default admin password
+  ansible.builtin.command:
+    cmd: "grafana-cli admin reset-admin-password {{ grafana_admin_password }}"
+
+- name: create prometheus datasource
+  community.grafana.grafana_datasource:
+    name: prometheus
+    grafana_url: "{{ grafana_uri }}"
+    grafana_user: admin
+    grafana_password: "{{ grafana_admin_password }}"
+    ds_type: prometheus
+    ds_url: "{{ prometheus_uri }}"
+    tls_skip_verify: true
+    uid: ds-prometheus-local
+
+### to my knowledge, this is the only way to import a dashboard with customized data source id:
+- name: upload dashboard
+  ansible.builtin.copy:
+    src: grafana/files/dashboard.json
+    dest: /tmp/grafana-node-exporter-full-dashboard.json
+
+- name: import Node Exporter Full dashboard
+  community.grafana.grafana_dashboard:
+    grafana_url: "{{ grafana_uri }}"
+    grafana_user: admin
+    grafana_password: "{{ grafana_admin_password }}"
+    path: /tmp/grafana-node-exporter-full-dashboard.json
+
+- name: upload dashboard
+  ansible.builtin.file:
+    path: /tmp/grafana-node-exporter-full-dashboard.json
+    state: absent

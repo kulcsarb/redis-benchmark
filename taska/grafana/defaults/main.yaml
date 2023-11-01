@@ -1,0 +1,4 @@
+---
+grafana_admin_password: y8Qvuz6QRQCS
+grafana_uri: "http://localhost:3000"
+prometheus_uri: "http://localhost:9090"
